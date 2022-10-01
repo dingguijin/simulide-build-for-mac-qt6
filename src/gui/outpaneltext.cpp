@@ -1,0 +1,120 @@
+/***************************************************************************
+ *   Copyright (C) 2012 by Santiago González                               *
+ *                                                                         *
+ ***( see copyright.txt file at root folder )*******************************/
+
+#include "outpaneltext.h"
+#include "mainwindow.h"
+#include "simulator.h"
+
+OutPanelText::OutPanelText( QWidget* parent )
+            : QPlainTextEdit( parent )
+            , Updatable()
+{
+    m_textBuffer = "";
+
+    m_highlighter = new OutHighlighter( document() );
+
+    QPalette p;
+    p.setColor( QPalette::Base, QColor( 35, 30, 60 ) );
+    p.setColor( QPalette::Text, QColor( 190, 190, 150) );
+    setPalette(p);
+    
+    QFont font;
+    font.setFamily("Ubuntu Mono");
+    font.setWeight( QFont::Weight(50) );
+    font.setFixedPitch(true);
+    font.setPixelSize( 13*MainWindow::self()->fontScale() );
+    setFont( font );
+
+    setMaximumBlockCount( 1000 );
+}
+OutPanelText::~OutPanelText(){}
+
+void OutPanelText::appendLine( const QString text )
+{
+    m_textBuffer.append( text+"\n" );
+    if( !Simulator::self() || !Simulator::self()->isRunning() ) updateStep();
+}
+
+void OutPanelText::updateStep()
+{
+    if( m_textBuffer.isEmpty() ) return;
+
+    if( this->document()->characterCount() > 100000 )
+        setPlainText( this->toPlainText().right( 90000 ) );
+
+    moveCursor( QTextCursor::End );
+    insertPlainText( m_textBuffer );
+    moveCursor( QTextCursor::End );
+    m_textBuffer.clear();
+}
+
+// CLASS OutHighlighter ***********************************************
+
+OutHighlighter::OutHighlighter( QTextDocument* parent )
+              : QSyntaxHighlighter( parent )
+{
+    HighlightingRule rule;
+    QTextCharFormat format;
+
+    format.setForeground( QColor(110, 180, 100) );
+    rule.pattern = QRegularExpression( "/[^\n]*" );
+    rule.format = format;
+    highlightingRules.append( rule );
+
+    format.setForeground( QColor(120, 120, 250) );
+    rule.pattern = QRegularExpression("[0-9]+");
+    rule.format = format;
+    highlightingRules.append(rule);
+
+    format.setForeground( QColor(50, 200, 100) );
+    rule.pattern = QRegularExpression( "\".*\"" );
+    rule.format = format;
+    highlightingRules.append( rule );
+
+    format.setForeground( QColor(200, 255, 200) );
+    format.setFontWeight( QFont::Bold );
+    rule.pattern = QRegularExpression("\\bSUCCESS\\b");
+    rule.format = format;
+    highlightingRules.append(rule);
+    
+    format.setForeground( QColor(255, 255, 200) );
+    rule.pattern = QRegularExpression("SENT:");
+    rule.format = format;
+    highlightingRules.append(rule);
+
+    format.setForeground( QColor(255, 200, 100) );
+    rule.pattern = QRegularExpression("\\bWARNING\\b");
+    rule.format = format;
+    highlightingRules.append(rule);
+
+    format.setForeground( QColor(100, 50, 0) );
+    format.setBackground( QColor(255, 255, 100) );
+    rule.pattern = QRegularExpression("\\bERROR\\b");
+    rule.format = format;
+    highlightingRules.append(rule);
+}
+OutHighlighter::~OutHighlighter(){}
+
+void OutHighlighter::highlightBlock( const QString &text )
+{
+    QString upText = text;
+    upText = upText.toUpper(); // Do case insensitive
+
+    for( const HighlightingRule &rule : highlightingRules )
+    {
+        QRegularExpression expression( rule.pattern );
+        // int index = expression.indexIn( upText );
+        QRegularExpressionMatch match;
+        int index = upText.indexOf(expression, 0, &match);
+        while( index >= 0 )
+        {
+            //int length = expression.matchedLength();
+            int length = match.capturedLength();
+            setFormat( index, length, rule.format );
+            //index = expression.indexIn( upText, index + length );
+            index = upText.indexOf(expression, index+length, &match);
+}   }   }
+
+#include "moc_outpaneltext.cpp"
